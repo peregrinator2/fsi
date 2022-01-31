@@ -1,5 +1,6 @@
 <html>
 <head>
+<title>To-Do</title>
 <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css" />
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
@@ -10,6 +11,7 @@
 </style>
 </head>
 <body>
+<h1>To-Do</h1>
 <table id="taskTable" border="1" cellspacing="0" cellpadding="2" width="720">
 <form id="newTaskForm">
     <tr id="create_task" nobr>
@@ -51,6 +53,11 @@
 </tbody>
 </table>
 
+<p>
+    <em>Click on the description of a task to edit the task description and/or due date;
+        click on the task's status to toggle Completed/Incomplete.</em>
+</p>
+    
 </body>
 <script>
 // Add events so if you click on date or description it brings up a modal and updates
@@ -100,7 +107,7 @@ const updateTask = (taskId, description, dueDate, completed) => {
             task_id: taskId,
 		    apiKey: api_key,
 	    }),
-        dataType: "text",
+        dataType: "text", // using JSON here gives a parseerror!! because the API returns nothing
     });
     return updateTask.promise();
 }
@@ -117,6 +124,16 @@ const deleteTask = (taskId) => {
         dataType: "text", // using JSON here gives a parseerror!! because the API returns nothing
     });
     return deleteTask.promise();
+}
+
+const clearUpdateForm = () => {
+    $("#update_id").val("");
+    $("#update_description").val("");
+    $("#update_date").val("");
+    $("#update_completed").val(0);
+
+    $("#update_task").hide();
+    $("#create_task").show();
 }
 
 $(function() {
@@ -179,12 +196,7 @@ $("#newTaskForm").submit(function(e) {
             $('<td align="center">').text(due_date),
             $('<td class="task_complete" title="${completed_tooltip}">').text(completed?"Yes":"No"),
         ).appendTo("#tasks");
-        $(`#row-${task_id}`).animate(
-            {
-                "background-color": "#fff",
-            },
-            2000,
-        );
+        $(`#row-${task_id}`).animate({"background-color": "#fff"}, 2000);
     },
     function(status) {
         alert("Fail: " + JSON.stringify(status));
@@ -203,34 +215,16 @@ $("#updateTaskForm").submit(function(e) {
     modifyTask = updateTask(task_id, description, due_date, completed);
     modifyTask.then(function(data) {
         // Update values
+        row.attr("data-description", description);
+        row.attr("data-due_date", due_date);
+
         children = row.children("td");
-        children[2].innerHTML = description;
-        children[3].innerHTML = due_date;
+        $(children[2]).text(description);
+        $(children[3]).text(due_date);
 
-        row.data("description", description);
-        row.data("due_date", due_date);
-        row.animate(
-            {
-                "background-color": "#7cf",
-            },
-            100,
-        );
-
-        // Clear form - move to separate function
-        $("#update_id").val("");
-        $("#update_description").val("");
-        $("#update_date").val("");
-        $("#update_completed").val(0);
-
-        $("#update_task").hide();
-        $("#create_task").show();
-
-        row.animate(
-            {
-                "background-color": "#fff",
-            },
-            2000,
-        );
+        row.animate({"background-color": "#7cf"}, 100);
+        clearUpdateForm();
+        row.animate({"background-color": "#fff"}, 2000);
     },
     function(status) {
         alert("Fail: " + JSON.stringify(status));
@@ -240,32 +234,19 @@ $("#updateTaskForm").submit(function(e) {
 $("#update_cancel").click(function(e) {
     e.preventDefault();
     var task_id = $("#update_id").val();
-    $(`#row-${task_id}`).animate(
-        {
-            "background-color": "#fff",
-        },
-        0,
-    );
+    $(`#row-${task_id}`).animate({"background-color": "#fff"}, 0);
 
-    $("#update_id").val("");
-    $("#update_description").val("");
-    $("#update_date").val("");
-    $("#update_completed").val(0);
-
-    $("#update_task").hide();
-    $("#create_task").show();
+    clearUpdateForm();
 });
 
 $("#tasks").on("click", ".task_delete", function(e) {
     var row = $(this).closest("tr");
     row.animate(
-        {
-            "background-color": "#fa0",
-        },
+        {"background-color": "#fa0"},
         100, // some transition time is necessary here - 0 does not work
         (function() {
-            var task_id = $(this).data("task_id");
-            var description = $(this).data("description");
+            var task_id = $(this).attr("data-task_id");
+            var description = $(this).attr("data-description");
             if (confirm(`Delete the task '${description}' (id = ${task_id})?`)) {
                 removeTask = deleteTask(task_id);
                 removeTask.then(function(data) {
@@ -275,12 +256,7 @@ $("#tasks").on("click", ".task_delete", function(e) {
                     alert("Fail: " + JSON.stringify(status));
                 });
             } else {
-                $(this).animate(
-                    {
-                        "background-color": "#fff",
-                    },
-                    2000,
-                );
+                $(this).animate({"background-color": "#fff"}, 2000);
             }
         })
     );
@@ -288,29 +264,30 @@ $("#tasks").on("click", ".task_delete", function(e) {
     e.preventDefault();
     var flag = $(this);
     var row = flag.closest("tr");
-    var task_id = row.data("task_id");
-    var description = row.data("description");
-    var due_date = row.data("due_date");
+    var task_id = row.attr("data-task_id");
+    var description = row.attr("data-description");
+    var due_date = row.attr("data-due_date");
+    var completed = !!Number(row.attr("data-completed"));
 
-    if (flag.text() == "No") {
-        if (confirm("Mark this task completed?")) {
-            var completed = true;
-            modifyTask = updateTask(task_id, description, due_date, completed);
+    if (completed) {
+        if (confirm("Mark this task incomplete?")) {
+            modifyTask = updateTask(task_id, description, due_date, !completed);
             modifyTask.then(function(data) {
-                flag.text("Yes");
-                flag.prop("title", "Mark Incomplete");
+                row.attr("data-completed", Number(!completed));
+                flag.text("No");
+                flag.prop("title", "Mark Completed");
             },
             function(status) {
                 alert("Fail: " + JSON.stringify(status));
             });
         }
     } else {
-        if (confirm("Mark this task incomplete?")) {
-            var completed = false;
-            modifyTask = updateTask(task_id, description, due_date, completed);
+        if (confirm("Mark this task completed?")) {
+            modifyTask = updateTask(task_id, description, due_date, !completed);
             modifyTask.then(function(data) {
-                flag.text("No");
-                flag.prop("title", "Mark Completed");
+                row.attr("data-completed", Number(!completed));
+                flag.text("Yes");
+                flag.prop("title", "Mark Incomplete");
             },
             function(status) {
                 alert("Fail: " + JSON.stringify(status));
@@ -323,17 +300,12 @@ $("#tasks").on("click", ".task_delete", function(e) {
     $("#update_task").show();
 
     var row = $(this).closest("tr");
-    var task_id = row.data("task_id");
-    $(`#row-${task_id}`).animate(
-        {
-            "background-color": "#ff7",
-        },
-        0,
-    );
+    var task_id = row.attr("data-task_id");
+    row.animate({"background-color": "#ff7"}, 0);
 
-    var description = row.data("description");
-    var due_date = row.data("due_date");
-    var completed = row.data("completed");
+    var description = row.attr("data-description");
+    var due_date = row.attr("data-due_date");
+    var completed = row.attr("data-completed");
 
     $("#update_id").val(task_id);
     $("#update_description").val(description);
