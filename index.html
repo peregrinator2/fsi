@@ -151,7 +151,7 @@ $(function() {
                 var description = item.task_description;
 
                 var completed = item.completed;
-                var completed_tooltip = item.completed ? "Mark Incomplete" : "Mark Completed";
+                var completed_tooltip = completed ? "Mark Incomplete" : "Mark Completed";
                 var $tr = $(
                     `<tr id="row-${task_id}" data-task_id="${task_id}" data-description="${description}" data-due_date="${due_date}" data-completed="${completed}">`
                 ).append(
@@ -161,7 +161,9 @@ $(function() {
                     $('<td align="center">').text(task_id),
                     $(`<td class="task_description" title="Edit '${description}'">`).text(description),
                     $('<td align="center">').text(due_date),
-                    $(`<td class="task_complete" title="${completed_tooltip}">`).text(completed?"Yes":"No"),
+                    $(
+                        `<td class="task_complete" title="Mark ${completed?'Incomplete':'Completed'}">`
+                    ).text(completed?"Yes":"No"),
                 ).appendTo("#tasks");
             });
         });
@@ -185,7 +187,6 @@ $("#newTaskForm").submit(function(e) {
     newTask.then(function(data) {
         $("#task_description").val("");
         $("#task_date").val("");
-        var completed_tooltip = completed ? "Mark Incomplete" : "Mark Completed";
         var task_id = data.task_id;
         var $tr = $(
             `<tr id="row-${task_id}" data-task_id="${task_id}" data-description="${description}" data-due_date="${due_date}" data-completed="${completed}" style="background-color:#aadd77;">`
@@ -194,7 +195,9 @@ $("#newTaskForm").submit(function(e) {
             $('<td align="center">').text(task_id),
             $(`<td class="task_description" title="Edit '${description}'">`).text(description),
             $('<td align="center">').text(due_date),
-            $('<td class="task_complete" title="${completed_tooltip}">').text(completed?"Yes":"No"),
+            $(
+                `<td class="task_complete" title="Mark ${completed?'Incomplete':'Completed'}">`
+            ).text(completed?"Yes":"No"),
         ).appendTo("#tasks");
         $(`#row-${task_id}`).animate({"background-color": "#fff"}, 2000);
     },
@@ -212,11 +215,11 @@ $("#updateTaskForm").submit(function(e) {
     var completed = $("#update_completed").val();
 
     var row = $(`#row-${task_id}`);
-    modifyTask = updateTask(task_id, description, due_date, completed);
+    modifyTask = updateTask(task_id, description, due_date, !!Number(completed));
     modifyTask.then(function(data) {
         // Update values
-        row.attr("data-description", description);
-        row.attr("data-due_date", due_date);
+        row.data("description", description);
+        row.data("due_date", due_date);
 
         children = row.children("td");
         $(children[2]).text(description);
@@ -245,8 +248,8 @@ $("#tasks").on("click", ".task_delete", function(e) {
         {"background-color": "#fa0"},
         100, // some transition time is necessary here - 0 does not work
         (function() {
-            var task_id = $(this).attr("data-task_id");
-            var description = $(this).attr("data-description");
+            var task_id = $(this).data("task_id");
+            var description = $(this).data("description");
             if (confirm(`Delete the task '${description}' (id = ${task_id})?`)) {
                 removeTask = deleteTask(task_id);
                 removeTask.then(function(data) {
@@ -262,37 +265,24 @@ $("#tasks").on("click", ".task_delete", function(e) {
     );
 }).on("click", ".task_complete", function(e) {
     e.preventDefault();
+
     var flag = $(this);
     var row = flag.closest("tr");
-    var task_id = row.attr("data-task_id");
-    var description = row.attr("data-description");
-    var due_date = row.attr("data-due_date");
-    var completed = !!Number(row.attr("data-completed"));
+    var task_id = row.data("task_id");
+    var description = row.data("description");
+    var due_date = row.data("due_date");
+    var completed = !!Number(row.data("completed"));
 
-    if (completed) {
-        if (confirm("Mark this task incomplete?")) {
-            modifyTask = updateTask(task_id, description, due_date, !completed);
-            modifyTask.then(function(data) {
-                row.attr("data-completed", Number(!completed));
-                flag.text("No");
-                flag.prop("title", "Mark Completed");
-            },
-            function(status) {
-                alert("Fail: " + JSON.stringify(status));
-            });
-        }
-    } else {
-        if (confirm("Mark this task completed?")) {
-            modifyTask = updateTask(task_id, description, due_date, !completed);
-            modifyTask.then(function(data) {
-                row.attr("data-completed", Number(!completed));
-                flag.text("Yes");
-                flag.prop("title", "Mark Incomplete");
-            },
-            function(status) {
-                alert("Fail: " + JSON.stringify(status));
-            });
-        }
+    if (confirm(`Mark this task ${completed?'incomplete':'completed'}?`)) {
+        modifyTask = updateTask(task_id, description, due_date, !completed);
+        modifyTask.then(function(data) {
+            row.data("completed", Number(!completed));
+            flag.text(completed ? 'No' : 'Yes');
+            flag.prop("title", `Mark ${completed?'Completed':'Incomplete'}`);
+        },
+        function(status) {
+            alert("Fail: " + JSON.stringify(status));
+        });
     }
 }).on("click", ".task_description", function(e) {
     e.preventDefault();
@@ -300,12 +290,14 @@ $("#tasks").on("click", ".task_delete", function(e) {
     $("#update_task").show();
 
     var row = $(this).closest("tr");
-    var task_id = row.attr("data-task_id");
+    row.parent().children().css("background-color", "#fff");
+    
+    var task_id = row.data("task_id");
     row.animate({"background-color": "#ff7"}, 0);
 
-    var description = row.attr("data-description");
-    var due_date = row.attr("data-due_date");
-    var completed = row.attr("data-completed");
+    var description = row.data("description");
+    var due_date = row.data("due_date");
+    var completed = Number(row.data("completed"));
 
     $("#update_id").val(task_id);
     $("#update_description").val(description);
