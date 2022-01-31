@@ -200,19 +200,23 @@ $("#updateTaskForm").submit(function(e) {
     var completed = $("#update_completed").val();
 
     var row = $(`#row-${task_id}`);
-    row.animate(
-        {
-            "background-color": "#7cf",
-        },
-        100,
-    );
-
     modifyTask = updateTask(task_id, description, due_date, completed);
     modifyTask.then(function(data) {
         // Update values
         children = row.children("td");
         children[2].innerHTML = description;
         children[3].innerHTML = due_date;
+
+        row.data("description", description);
+        row.data("due_date", due_date);
+        row.animate(
+            {
+                "background-color": "#7cf",
+            },
+            100,
+        );
+
+        // Clear form - move to separate function
         $("#update_id").val("");
         $("#update_description").val("");
         $("#update_date").val("");
