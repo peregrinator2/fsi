@@ -10,9 +10,9 @@
 </style>
 </head>
 <body>
-<table id="taskTable" border="1" cellspacing="0" cellpadding="2">
-<form id="taskForm">
-    <tr nobr>
+<table id="taskTable" border="1" cellspacing="0" cellpadding="2" width="720">
+<form id="newTaskForm">
+    <tr id="create_task" nobr>
         <td colspan="5">
             <strong>Create New Task:</strong>
             <input type="text" id="task_description" name="description" />
@@ -22,14 +22,29 @@
         </td>
     </tr>
 </form>
-    
+
+<form id="updateTaskForm">
+    <tr id="update_task" nobr>
+        <td colspan="5">
+            <strong>Update Task:</strong>
+            <input type="text" id="update_id" name="task_id" readonly="true" size="3" />
+            <input type="text" id="update_description" name="description" />
+            <strong>Due:</strong>
+            <input type="text" id="update_date" name="due_date" autocomplete="off" size="10" />
+            <input type="hidden" id="update_completed" name="completed" value="0" />
+            <input type="submit" value=" Update " />
+            <input id="update_cancel" type="button" value=" Cancel " />
+        </td>
+    </tr>
+</form>
+
 <tbody id="taskHeader">
     <tr>
         <th>Delete</th>
         <th>Task ID</th>
+        <th align="left">Description</th>
         <th>Due Date</th>
         <th>Completed</th>
-        <th align="left">Description</th>
     </tr>
 </tbody>
 <tbody id="tasks">
@@ -38,13 +53,12 @@
 
 </body>
 <script>
-// Add an event so that if you click "Completed" it asks for confirmation then toggles the value
 // Add events so if you click on date or description it brings up a modal and updates
-// Add refresh event
-
+ 
 api_url = "https://www.fsi.illinois.edu/demo/data.cfm";
 api_key = "906fb0b13df5d4a8c2af20a87381368e";
 
+/* Sorts by: completed, due date, description */
 const getTasks = () => {
     var tasks = $.post({
         url: api_url,
@@ -108,23 +122,29 @@ const deleteTask = (taskId) => {
 $(function() {
     $(document).tooltip();
     $("#task_date").datepicker();
+    $("#update_task").hide();
 
     // Let's display the tasks when we first load the page!
     var tasks = getTasks();
     tasks.then(function(data) {
         $(function() {
             $.each(data, function(i, item) {
-                var title = item.completed ? "Mark Incomplete" : "Mark Completed";
+                var task_id = item.task_id;
+                var due_date = item.due_date;
+                var description = item.task_description;
+
+                var completed = item.completed;
+                var completed_tooltip = item.completed ? "Mark Incomplete" : "Mark Completed";
                 var $tr = $(
-                    `<tr id="row-${item.task_id}" data-task_id="${item.task_id}" data-description="${item.task_description}" data-due_date="${item.due_date}">`
+                    `<tr id="row-${task_id}" data-task_id="${task_id}" data-description="${description}" data-due_date="${due_date}" data-completed="${completed}">`
                 ).append(
                     $('<td align="center">').html(
                         '<input type="button" class="task_delete" value="Delete" />'
                     ),
-                    $('<td align="center">').text(item.task_id),
-                    $('<td align="center">').text(item.due_date),
-                    $(`<td class="task_complete" title="${title}">`).text(item.completed?"Yes":"No"),
-                    $('<td>').text(item.task_description),
+                    $('<td align="center">').text(task_id),
+                    $(`<td class="task_description" title="Edit '${description}'">`).text(description),
+                    $('<td align="center">').text(due_date),
+                    $(`<td class="task_complete" title="${completed_tooltip}">`).text(completed?"Yes":"No"),
                 ).appendTo("#tasks");
             });
         });
@@ -134,56 +154,139 @@ $(function() {
     });
 });
 
-$("#taskForm").submit(function(e) {
+$("#newTaskForm").submit(function(e) {
     e.preventDefault();
 
-    var form = $(this);
     var description = $("#task_description").val();
-    var dueDate = $("#task_date").val();
+    var due_date = $("#task_date").val();
     var completed = false;
     var newTask = createTask(
         description,
-        dueDate,
+        due_date,
         completed,
     );
     newTask.then(function(data) {
+        $("#task_description").val("");
+        $("#task_date").val("");
+        var completed_tooltip = completed ? "Mark Incomplete" : "Mark Completed";
+        var task_id = data.task_id;
         var $tr = $(
-            `<tr id="row-${data.task_id}" data-task_id="${data.task_id}" data-description="${description}">  data-due_date="${item.due_date}">`
+            `<tr id="row-${task_id}" data-task_id="${task_id}" data-description="${description}" data-due_date="${due_date}" data-completed="${completed}" style="background-color:#aadd77;">`
         ).append(
             $('<td align="center">').html('<input type="button" class="task_delete" value="Delete" />'),
-            $('<td align="center">').text(data.task_id),
-            $('<td align="center">').text(dueDate),
-            $('<td class="task_complete">').text(completed?"Yes":"No"),
-            $('<td>').text(description),
+            $('<td align="center">').text(task_id),
+            $(`<td class="task_description" title="Edit '${description}'">`).text(description),
+            $('<td align="center">').text(due_date),
+            $('<td class="task_complete" title="${completed_tooltip}">').text(completed?"Yes":"No"),
         ).appendTo("#tasks");
+        $(`#row-${task_id}`).animate(
+            {
+                "background-color": "#fff",
+            },
+            2000,
+        );
     },
     function(status) {
         alert("Fail: " + JSON.stringify(status));
     });
 });
 
-$("#tasks").on("click", ".task_delete", function(e) {
+$("#updateTaskForm").submit(function(e) {
     e.preventDefault();
-    var row = $(this).closest("tr");
-    var task_id = row.data("task_id");
-    var description = row.data("description");
-    if (confirm(`Delete the task ${description} (id = ${task_id})?`)) {
-        removeTask = deleteTask(task_id);
-        removeTask.then(function(data) {
-            $(`#row-${task_id}`).remove();
+
+    var task_id = $("#update_id").val();
+    var description = $("#update_description").val();
+    var due_date = $("#update_date").val();
+    var completed = $("#update_completed").val();
+
+    var row = $(`#row-${task_id}`);
+    row.animate(
+        {
+            "background-color": "#7cf",
         },
-        function(status) {
-            alert("Fail: " + JSON.stringify(status));
-        });
-    }
+        100,
+    );
+
+    modifyTask = updateTask(task_id, description, due_date, completed);
+    modifyTask.then(function(data) {
+        // Update values
+        children = row.children("td");
+        children[2].innerHTML = description;
+        children[3].innerHTML = due_date;
+        $("#update_id").val("");
+        $("#update_description").val("");
+        $("#update_date").val("");
+        $("#update_completed").val(0);
+
+        $("#update_task").hide();
+        $("#create_task").show();
+
+        row.animate(
+            {
+                "background-color": "#fff",
+            },
+            2000,
+        );
+    },
+    function(status) {
+        alert("Fail: " + JSON.stringify(status));
+    });
+});
+
+$("#update_cancel").click(function(e) {
+    e.preventDefault();
+    var task_id = $("#update_id").val();
+    $(`#row-${task_id}`).animate(
+        {
+            "background-color": "#fff",
+        },
+        0,
+    );
+
+    $("#update_id").val("");
+    $("#update_description").val("");
+    $("#update_date").val("");
+    $("#update_completed").val(0);
+
+    $("#update_task").hide();
+    $("#create_task").show();
+});
+
+$("#tasks").on("click", ".task_delete", function(e) {
+    var row = $(this).closest("tr");
+    row.animate(
+        {
+            "background-color": "#fa0",
+        },
+        100, // some transition time is necessary here - 0 does not work
+        (function() {
+            var task_id = $(this).data("task_id");
+            var description = $(this).data("description");
+            if (confirm(`Delete the task '${description}' (id = ${task_id})?`)) {
+                removeTask = deleteTask(task_id);
+                removeTask.then(function(data) {
+                    row.remove();
+                },
+                function(status) {
+                    alert("Fail: " + JSON.stringify(status));
+                });
+            } else {
+                $(this).animate(
+                    {
+                        "background-color": "#fff",
+                    },
+                    2000,
+                );
+            }
+        })
+    );
 }).on("click", ".task_complete", function(e) {
     e.preventDefault();
-    var row = $(this).parent("tr");
+    var flag = $(this);
+    var row = flag.closest("tr");
     var task_id = row.data("task_id");
     var description = row.data("description");
     var due_date = row.data("due_date");
-
-    var flag = $(this);
 
     if (flag.text() == "No") {
         if (confirm("Mark this task completed?")) {
@@ -191,6 +294,7 @@ $("#tasks").on("click", ".task_delete", function(e) {
             modifyTask = updateTask(task_id, description, due_date, completed);
             modifyTask.then(function(data) {
                 flag.text("Yes");
+                flag.prop("title", "Mark Incomplete");
             },
             function(status) {
                 alert("Fail: " + JSON.stringify(status));
@@ -202,12 +306,35 @@ $("#tasks").on("click", ".task_delete", function(e) {
             modifyTask = updateTask(task_id, description, due_date, completed);
             modifyTask.then(function(data) {
                 flag.text("No");
+                flag.prop("title", "Mark Completed");
             },
             function(status) {
                 alert("Fail: " + JSON.stringify(status));
             });
         }
     }
+}).on("click", ".task_description", function(e) {
+    e.preventDefault();
+    $("#create_task").hide();
+    $("#update_task").show();
+
+    var row = $(this).closest("tr");
+    var task_id = row.data("task_id");
+    $(`#row-${task_id}`).animate(
+        {
+            "background-color": "#ff7",
+        },
+        0,
+    );
+
+    var description = row.data("description");
+    var due_date = row.data("due_date");
+    var completed = row.data("completed");
+
+    $("#update_id").val(task_id);
+    $("#update_description").val(description);
+    $("#update_date").val(due_date);
+    $("#update_completed").val(completed);
 });
 </script>
 </html>
