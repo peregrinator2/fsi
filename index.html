@@ -8,6 +8,15 @@
     td.task_complete {
         text-align: center;
     }
+    .ui-tooltip {
+        background: black;
+        border: 2px solid white;
+        padding: 5px 10px;
+        color: white;
+        border-radius: 12px;
+        font: bold 12px "Helvetica Neue", Sans-Serif;
+        box-shadow: 0 0 1px black;
+    }
 </style>
 </head>
 <body>
@@ -137,7 +146,12 @@ const clearUpdateForm = () => {
 }
 
 $(function() {
-    $(document).tooltip();
+    $(document).tooltip({
+        position: {
+            my: "left-25 top",
+            at: "center",
+        }
+    });
     $("#task_date").datepicker();
     $("#update_task").hide();
 
@@ -273,7 +287,7 @@ $("#tasks").on("click", ".task_delete", function(e) {
     var due_date = row.data("due_date");
     var completed = !!Number(row.data("completed"));
 
-    if (confirm(`Mark this task ${completed?'incomplete':'completed'}?`)) {
+    if (confirm(`Mark '${description}' (id = ${task_id}) ${completed?'incomplete':'completed'}?`)) {
         modifyTask = updateTask(task_id, description, due_date, !completed);
         modifyTask.then(function(data) {
             row.data("completed", Number(!completed));
