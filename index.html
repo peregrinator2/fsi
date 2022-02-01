@@ -69,12 +69,11 @@
     
 </body>
 <script>
-// Add events so if you click on date or description it brings up a modal and updates
- 
+// Normally we wouldn't have these in code:
 api_url = "https://www.fsi.illinois.edu/demo/data.cfm";
 api_key = "906fb0b13df5d4a8c2af20a87381368e";
 
-/* Sorts by: completed, due date, description */
+// Sorts by: completed, due date, description
 const getTasks = () => {
     var tasks = $.post({
         url: api_url,
@@ -116,7 +115,7 @@ const updateTask = (taskId, description, dueDate, completed) => {
             task_id: taskId,
 		    apiKey: api_key,
 	    }),
-        dataType: "text", // using JSON here gives a parseerror!! because the API returns nothing
+        dataType: "text", // using "json" here gives a parseerror!! because the API returns nothing
     });
     return updateTask.promise();
 }
@@ -130,7 +129,7 @@ const deleteTask = (taskId) => {
             task_id: taskId,
 		    apiKey: api_key,
 	    }),
-        dataType: "text", // using JSON here gives a parseerror!! because the API returns nothing
+        dataType: "text", // using "json" here gives a parseerror!! because the API returns nothing
     });
     return deleteTask.promise();
 }
@@ -163,9 +162,8 @@ $(function() {
                 var task_id = item.task_id;
                 var due_date = item.due_date;
                 var description = item.task_description;
-
                 var completed = item.completed;
-                var completed_tooltip = completed ? "Mark Incomplete" : "Mark Completed";
+
                 var $tr = $(
                     `<tr id="row-${task_id}" data-task_id="${task_id}" data-description="${description}" data-due_date="${due_date}" data-completed="${completed}">`
                 ).append(
@@ -251,7 +249,7 @@ $("#updateTaskForm").submit(function(e) {
 $("#update_cancel").click(function(e) {
     e.preventDefault();
     var task_id = $("#update_id").val();
-    $(`#row-${task_id}`).animate({"background-color": "#fff"}, 0);
+    $(`#row-${task_id}`).css("background-color", "#fff");
 
     clearUpdateForm();
 });
@@ -305,10 +303,9 @@ $("#tasks").on("click", ".task_delete", function(e) {
 
     var row = $(this).closest("tr");
     row.parent().children().css("background-color", "#fff");
+    row.css("background-color", "#ff7");
     
     var task_id = row.data("task_id");
-    row.animate({"background-color": "#ff7"}, 0);
-
     var description = row.data("description");
     var due_date = row.data("due_date");
     var completed = Number(row.data("completed"));
